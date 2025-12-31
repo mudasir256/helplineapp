@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "Helpline Welfare Trust",
+    "slug": "helpline-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "helpline-app",
+    "splash": {
+      "image": "./assets/images/logo.webp",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.helpline.app",
+      "statusBar": {
+        "barStyle": "light-content"
+      },
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "helpline-app",
+              "com.helpline.app",
+              "com.googleusercontent.apps.909435925564-egftc3uo67dr3losokifrgps9nmnrrge"
+            ]
+          }
+        ]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#3498db"
+      },
+      "package": "com.helpline.app",
+      "statusBar": {
+        "backgroundColor": "#3498db",
+        "barStyle": "light-content"
+      }
+    },
+    "plugins": [
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
+    ],
+    "extra": {
+      "googleWebClientId": "${EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID}"
+    }
+  }
+}
