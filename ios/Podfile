@@ -56,18 +56,5 @@ target 'HelplineWelfareTrust' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
-    
-    # Fix for react-native-worklets header search paths
-    installer.pods_project.targets.each do |target|
-      if target.name == 'RNWorklets'
-        target.build_configurations.each do |config|
-          config.build_settings['HEADER_SEARCH_PATHS'] ||= ['$(inherited)']
-          config.build_settings['HEADER_SEARCH_PATHS'] << '"${PODS_ROOT}/Headers/Public/React-Core"'
-          config.build_settings['HEADER_SEARCH_PATHS'] << '"${PODS_ROOT}/Headers/Public/ReactCommon"'
-          config.build_settings['HEADER_SEARCH_PATHS'] << '"${PODS_ROOT}/Headers/Private/React-Core"'
-          config.build_settings['HEADER_SEARCH_PATHS'] << '"${PODS_ROOT}/Headers/Private/ReactCommon"'
-        end
-      end
-    end
   end
 end

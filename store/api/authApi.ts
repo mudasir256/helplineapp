@@ -13,10 +13,9 @@ export interface SignupRequest {
 }
 
 export interface GoogleAuthRequest {
-  googleId: string;
   email: string;
   name?: string;
-  picture?: string;
+  profile_image?: string;
 }
 
 export interface User {
@@ -29,7 +28,9 @@ export interface User {
 
 export interface AuthResponse {
   user: User;
-  token?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  token?: string; // Keep for backward compatibility
   message?: string;
 }
 

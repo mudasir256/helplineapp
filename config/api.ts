@@ -4,8 +4,8 @@ import { Platform } from 'react-native';
 export const getApiBaseUrl = (): string => {
   if (__DEV__) {
     // Development mode - using your computer's IP address
-    const API_IP = '192.168.100.31';
-    const API_PORT = '3000';
+    const API_IP = '192.168.1.11';
+    const API_PORT = '5001';
     return `http://${API_IP}:${API_PORT}`;
   }
   // Production mode - update this with your production API URL

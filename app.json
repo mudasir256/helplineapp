@@ -26,7 +26,7 @@
             "CFBundleURLSchemes": [
               "helpline-app",
               "com.helpline.app",
-              "com.googleusercontent.apps.909435925564-egftc3uo67dr3losokifrgps9nmnrrge"
+              "com.googleusercontent.apps.909435925564-n4ltt9ao229hf7j0iqg4okb5bbhfcnhh"
             ]
           }
         ]
@@ -43,8 +43,12 @@
       }
     },
     "plugins": [
-      "expo-web-browser",
-      "@react-native-google-signin/google-signin"
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.909435925564-n4ltt9ao229hf7j0iqg4okb5bbhfcnhh"
+        }
+      ]
     ],
     "extra": {
       "googleWebClientId": "${EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID}"

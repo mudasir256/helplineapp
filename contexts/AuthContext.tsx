@@ -1,9 +1,12 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import { GoogleSignin, statusCodes, GoogleSigninButton } from '@react-native-google-signin/google-signin';
+import { isErrorWithCode, isSuccessResponse, isCancelledResponse } from '../utils/googleSignIn';
 import { useLoginMutation, useSignupMutation, useGoogleAuthMutation, User, AuthResponse } from '../store/api/authApi';
 import { showToast } from '../utils/toast';
+import { initializeGoogleSignIn, isGoogleSignInConfigured } from '../utils/googleSignIn';
+import { APP_CONFIG } from '../config/constants';
 
 interface AuthUser extends User {
   email: string;
@@ -33,37 +36,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [googleAuthMutation] = useGoogleAuthMutation();
 
   useEffect(() => {
-    // Configure Google Sign-In
-    const configureGoogleSignIn = async () => {
-      try {
-        const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-        
-        if (!webClientId) {
-          console.warn('⚠️ EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID not found in environment variables');
-          return;
-        }
-
-        GoogleSignin.configure({
-          webClientId: webClientId, // From Google Cloud Console - Web Client ID
-          iosClientId: webClientId, // For iOS, use the same web client ID (or get iOS client ID from Google Cloud Console)
-          offlineAccess: true, // If you want to access Google API on behalf of the user FROM YOUR SERVER
-          scopes: ['profile', 'email'],
-        });
-      } catch (error) {
-        console.error('Error configuring Google Sign-In:', error);
-      }
-    };
-
-    configureGoogleSignIn();
+    // Initialize Google Sign-In
+    try {
+      initializeGoogleSignIn();
+    } catch (error) {
+      console.error('Failed to initialize Google Sign-In:', error);
+    }
     // Check if user is already logged in
     checkAuthStatus();
   }, []);
 
   const checkAuthStatus = async () => {
     try {
-      const userData = await AsyncStorage.getItem('user');
-      const token = await AsyncStorage.getItem('token');
-      if (userData && token) {
+      const userData = await AsyncStorage.getItem(APP_CONFIG.USER_STORAGE_KEY);
+      const accessToken = await AsyncStorage.getItem(APP_CONFIG.ACCESS_TOKEN_KEY);
+      if (userData && accessToken) {
         setUser(JSON.parse(userData));
       }
     } catch (error) {
@@ -313,7 +300,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async (): Promise<void> => {
     try {
-      await AsyncStorage.removeItem('user');
+      await AsyncStorage.removeItem(APP_CONFIG.USER_STORAGE_KEY);
+      await AsyncStorage.removeItem(APP_CONFIG.ACCESS_TOKEN_KEY);
+      await AsyncStorage.removeItem(APP_CONFIG.REFRESH_TOKEN_KEY);
+      // Also remove old token key for backward compatibility
       await AsyncStorage.removeItem('token');
       setUser(null);
       showToast.success('Logged out successfully', 'Goodbye');
@@ -339,11 +329,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = async (): Promise<boolean> => {
     try {
       // Check if Google Sign-In is configured
-      const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-      
-      if (!webClientId) {
+      if (!isGoogleSignInConfigured()) {
         showToast.error('Google Client ID not configured', 'Configuration Error');
         console.error('Please set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID in your .env file');
+        return false;
+      }
+
+      // Ensure Google Sign-In is configured (reconfigure if needed)
+      try {
+        initializeGoogleSignIn();
+      } catch (configError) {
+        console.error('Failed to configure Google Sign-In:', configError);
+        showToast.error('Google Sign-In configuration failed', 'Configuration Error');
         return false;
       }
 
@@ -352,52 +349,71 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       }
 
-      // Sign in with Google
-      const userInfo = await GoogleSignin.signIn();
+      // Sign in with Google (following official documentation)
+      const response = await GoogleSignin.signIn();
       
-      if (!userInfo.data?.user) {
+      // Check if sign-in was successful
+      if (!isSuccessResponse(response)) {
+        if (isCancelledResponse(response)) {
+          console.log('User cancelled the login flow');
+          return false;
+        }
+        console.error('Sign-in was not successful:', response);
+        showToast.error('Google sign-in was cancelled or failed', 'Google Login Error');
+        return false;
+      }
+
+      // Extract user data from response (following documentation structure)
+      if (!response.data?.user) {
         console.error('No user data received from Google');
         showToast.error('Failed to get Google user information', 'Google Login Error');
         return false;
       }
 
-      const googleUser = userInfo.data.user;
-      const googleId = googleUser.id;
+      const googleUser = response.data.user;
       const email = googleUser.email;
       const name = googleUser.name || undefined;
-      const picture = googleUser.photo || undefined;
+      const profile_image = googleUser.photo || undefined;
 
-      if (!googleId || !email) {
+      if (!email) {
         console.error('Missing required Google user data');
         showToast.error('Failed to get complete Google user information', 'Google Login Error');
         return false;
       }
 
-      console.log('Google user data received:', { googleId, email, name, picture });
+      console.log('Google user data received:', { email, name, profile_image });
 
       // Send Google user data to backend
       try {
         const response = await googleAuthMutation({
-          googleId: googleId,
           email: email,
           name: name,
-          picture: picture,
+          profile_image: profile_image,
         }).unwrap();
         
         console.log('Google auth API response:', response);
 
-        if (response.user) {
+        if (response.user && response.accessToken) {
           const userData: AuthUser = {
             email: response.user.email || '',
             name: response.user.name,
-            picture: response.user.picture,
+            picture: response.user.picture || response.user.profile_image,
             id: response.user.id,
           };
 
-          await AsyncStorage.setItem('user', JSON.stringify(userData));
+          // Save user data and tokens
+          await AsyncStorage.setItem(APP_CONFIG.USER_STORAGE_KEY, JSON.stringify(userData));
+          await AsyncStorage.setItem(APP_CONFIG.ACCESS_TOKEN_KEY, response.accessToken);
+          
+          if (response.refreshToken) {
+            await AsyncStorage.setItem(APP_CONFIG.REFRESH_TOKEN_KEY, response.refreshToken);
+          }
+          
+          // Also save token for backward compatibility
           if (response.token) {
             await AsyncStorage.setItem('token', response.token);
           }
+          
           setUser(userData);
           showToast.success('Logged in with Google!', 'Welcome');
           return true;
@@ -416,9 +432,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Show specific error message
         let errorMessage = 'Google login failed. Please try again.';
         if (apiError.status === 400) {
-          errorMessage = apiError.data?.message || 'Invalid Google token. Please try again.';
+          errorMessage = apiError.data?.error || apiError.data?.message || 'Invalid request. Please try again.';
         } else if (apiError.status === 'FETCH_ERROR') {
           errorMessage = 'Network error. Please check your connection.';
+        } else if (apiError.data?.error) {
+          errorMessage = apiError.data.error;
         } else if (apiError.data?.message) {
           errorMessage = apiError.data.message;
         }
@@ -429,21 +447,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       console.error('Google login error:', error);
       
-      // Handle specific Google Sign-In errors
-      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-        console.log('User cancelled the login flow');
-        return false;
-      } else if (error.code === statusCodes.IN_PROGRESS) {
-        showToast.error('Sign in already in progress', 'Please wait');
-        return false;
-      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        showToast.error('Google Play Services not available', 'Please update Google Play Services');
+      // Handle errors according to official documentation
+      if (isErrorWithCode(error)) {
+        switch (error.code) {
+          case statusCodes.SIGN_IN_CANCELLED:
+            console.log('User cancelled the login flow');
+            return false;
+          case statusCodes.IN_PROGRESS:
+            showToast.error('Sign in already in progress', 'Please wait');
+            return false;
+          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+            showToast.error('Google Play Services not available', 'Please update Google Play Services');
+            return false;
+          case 'SIGN_IN_ERROR':
+            // Extract the actual error message
+            const errorMessage = error?.message || 'Unknown Google Sign-In error';
+            console.error('Sign-in error details:', errorMessage);
+            
+            // Check for URL scheme errors (requires app rebuild)
+            if (errorMessage.includes('missing support for the following URL schemes')) {
+              showToast.error(
+                'App needs to be rebuilt. Run: npx expo run:ios',
+                'Configuration Error'
+              );
+            } else {
+              showToast.error(errorMessage || 'Google login failed. Please try again.', 'Login Failed');
+            }
+            return false;
+          default:
+            console.error('Google Sign-In error:', error.code, error.message);
+            showToast.error('Google login failed. Please try again.', 'Login Failed');
+            return false;
+        }
+      } else {
+        // Error that's not related to Google Sign-In
+        console.error('Unexpected error:', error);
+        showToast.error('An unexpected error occurred. Please try again.', 'Error');
         return false;
       }
-      
-      console.error('Error details:', JSON.stringify(error, null, 2));
-      showToast.error('Google login failed. Please try again.', 'Login Failed');
-      return false;
     }
   };
 
