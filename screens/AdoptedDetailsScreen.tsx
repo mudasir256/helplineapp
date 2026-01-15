@@ -31,8 +31,21 @@ export default function AdoptedDetailsScreen() {
     (navigation as any).navigate('AdoptionList', { domain });
   };
 
-  const formatAmount = (amount: number) => {
-    return `PKR ${amount.toLocaleString()}`;
+  const formatAmount = (amount: number | undefined | null | string) => {
+    let numAmount: number;
+    if (typeof amount === 'string') {
+      numAmount = parseFloat(amount);
+    } else if (amount === undefined || amount === null) {
+      numAmount = 0;
+    } else {
+      numAmount = amount;
+    }
+    
+    if (isNaN(numAmount)) {
+      numAmount = 0;
+    }
+    
+    return `PKR ${numAmount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -40,7 +53,7 @@ export default function AdoptedDetailsScreen() {
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
-  const handleRemove = (id: string, name: string) => {
+  const handleRemove = (id: string, name: string, domain: string) => {
     Alert.alert(
       'Remove Adoption',
       `Are you sure you want to remove ${name} from your adopted list?`,
@@ -49,17 +62,26 @@ export default function AdoptedDetailsScreen() {
         {
           text: 'Remove',
           style: 'destructive',
-          onPress: () => removeAdoptedItem(id),
+          onPress: () => removeAdoptedItem(id, domain),
         },
       ]
     );
   };
 
+  const handleViewDetails = (item: AdoptedItem) => {
+    (navigation as any).navigate('AdoptedItemDetail', { item });
+  };
+
+  const totalAmount = adoptedItems.reduce((sum, item) => {
+    const amountToUse = item.amountNeeded !== undefined ? item.amountNeeded : item.amount;
+    return sum + (amountToUse || 0);
+  }, 0);
+
   const renderAdoptedItem = ({ item }: { item: AdoptedItem }) => (
     <View style={styles.adoptedCard}>
       <View style={styles.adoptedHeader}>
         <View style={styles.adoptedInfo}>
-          <Text style={styles.adoptedName}>{item.name}</Text>
+          <Text style={styles.adoptedName} numberOfLines={1}>{item.name}</Text>
           <View style={styles.domainBadge}>
             <Text style={styles.domainBadgeText}>
               {domainTitles[item.domain] || item.domain}
@@ -67,49 +89,45 @@ export default function AdoptedDetailsScreen() {
           </View>
         </View>
         <TouchableOpacity
-          onPress={() => handleRemove(item.id, item.name)}
+          onPress={() => handleRemove(item.id, item.name, item.domain)}
           style={styles.removeButton}
         >
-          <MaterialCommunityIcons name="close-circle" size={24} color="#e74c3c" />
+          <MaterialCommunityIcons name="close-circle" size={20} color="#e74c3c" />
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.amountNeededContainer}>
+        <Text style={styles.amountNeededLabel}>Amount Needed</Text>
+        <Text style={styles.amountNeededValue}>
+          {formatAmount(item.amountNeeded !== undefined ? item.amountNeeded : item.amount)}
+        </Text>
       </View>
 
       <View style={styles.adoptedDetails}>
         <View style={styles.detailRow}>
-          <MaterialCommunityIcons name="map-marker" size={16} color="#7f8c8d" />
-          <Text style={styles.detailText}>{item.location}</Text>
-        </View>
-        {item.age && item.age > 0 && (
-          <View style={styles.detailRow}>
-            <MaterialCommunityIcons name="account" size={16} color="#7f8c8d" />
-            <Text style={styles.detailText}>{item.age} years old</Text>
-          </View>
-        )}
-        <View style={styles.detailRow}>
-          <MaterialCommunityIcons name="tag" size={16} color="#7f8c8d" />
-          <Text style={styles.detailText}>{item.need}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <MaterialCommunityIcons name="currency-usd" size={16} color="#27ae60" />
-          <Text style={[styles.detailText, styles.amountText]}>{formatAmount(item.amount)}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <MaterialCommunityIcons name="calendar" size={16} color="#3498db" />
-          <Text style={styles.detailText}>Adopted on {formatDate(item.adoptedDate)}</Text>
+          <MaterialCommunityIcons name="calendar" size={14} color="#3498db" />
+          <Text style={styles.detailText}>{formatDate(item.adoptedDate)}</Text>
         </View>
       </View>
 
-      <Text style={styles.description}>{item.description}</Text>
-
-      <TouchableOpacity
-        style={styles.payButton}
-        onPress={() => {
-          WebBrowser.openBrowserAsync('https://www.helplinewelfaretrust.org/donation');
-        }}
-      >
-        <MaterialCommunityIcons name="credit-card" size={20} color="#fff" />
-        <Text style={styles.payButtonText}>Pay Now</Text>
-      </TouchableOpacity>
+      <View style={styles.cardButtons}>
+        <TouchableOpacity
+          style={styles.detailsButton}
+          onPress={() => handleViewDetails(item)}
+        >
+          <MaterialCommunityIcons name="information" size={16} color="#3498db" />
+          <Text style={styles.detailsButtonText}>View Details</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.payButton}
+          onPress={() => {
+            WebBrowser.openBrowserAsync('https://www.helplinewelfaretrust.org/donation');
+          }}
+        >
+          <MaterialCommunityIcons name="credit-card" size={18} color="#fff" />
+          <Text style={styles.payButtonText}>Pay Now</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
   return (
@@ -126,10 +144,10 @@ export default function AdoptedDetailsScreen() {
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>
-            {adoptedItems.reduce((sum, item) => sum + item.amount, 0).toLocaleString()}
+          <Text style={styles.statNumber} numberOfLines={1}>
+            {formatAmount(totalAmount)}
           </Text>
-          <Text style={styles.statLabel}>Total Amount</Text>
+          <Text style={styles.statLabel}>Total Needed</Text>
         </View>
       </View>
 
@@ -306,14 +324,14 @@ const styles = StyleSheet.create({
   },
   adoptedCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
     borderWidth: 1,
     borderColor: '#f0f0f0',
   },
@@ -321,68 +339,104 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   adoptedInfo: {
     flex: 1,
+    marginRight: 8,
   },
   adoptedName: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
     color: '#2c3e50',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   domainBadge: {
     alignSelf: 'flex-start',
     backgroundColor: '#e3f2fd',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
   domainBadgeText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
     color: '#3498db',
   },
   removeButton: {
-    padding: 4,
+    padding: 2,
+  },
+  amountNeededContainer: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: '#27ae60',
+    minHeight: 60,
+    justifyContent: 'center',
+  },
+  amountNeededLabel: {
+    fontSize: 12,
+    color: '#27ae60',
+    fontWeight: '700',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  amountNeededValue: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#27ae60',
+    lineHeight: 28,
   },
   adoptedDetails: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   detailText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#7f8c8d',
-    marginLeft: 8,
+    marginLeft: 6,
   },
-  amountText: {
-    color: '#27ae60',
+  cardButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  detailsButton: {
+    flex: 1,
+    backgroundColor: '#e3f2fd',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+    borderRadius: 8,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#3498db',
+  },
+  detailsButtonText: {
+    color: '#3498db',
+    fontSize: 13,
     fontWeight: '700',
   },
-  description: {
-    fontSize: 14,
-    color: '#2c3e50',
-    lineHeight: 20,
-    marginBottom: 16,
-  },
   payButton: {
+    flex: 1,
     backgroundColor: '#27ae60',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 14,
-    borderRadius: 12,
-    gap: 8,
-    marginTop: 8,
+    padding: 10,
+    borderRadius: 8,
+    gap: 6,
   },
   payButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
 });

@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { GOOGLE_SIGN_IN_CONFIG } from '../config/constants';
 
 // Helper functions from the documentation
-export const isErrorWithCode = (error: any): error is { code: string } => {
+export const isErrorWithCode = (error: any): error is { code: string; message?: string } => {
   return error && typeof error.code === 'string';
 };
 

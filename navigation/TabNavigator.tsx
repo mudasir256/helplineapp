@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Screens
 import HomeScreen from '../screens/HomeScreen';
-import ResourcesScreen from '../screens/ResourcesScreen';
+import CampaignScreen from '../screens/CampaignScreen';
 import AdoptedDetailsScreen from '../screens/AdoptedDetailsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
@@ -20,7 +20,7 @@ export default function TabNavigator() {
         tabBarStyle: {
           backgroundColor: '#3498db',
           borderTopWidth: 0,
-          paddingBottom: 10,
+          paddingBottom: 20,
           paddingTop: 5,
           height: 65,
           elevation: 8,
@@ -46,12 +46,12 @@ export default function TabNavigator() {
         }}
       />
       <Tab.Screen
-        name="ResourcesTab"
-        component={ResourcesScreen}
+        name="CampaignTab"
+        component={CampaignScreen}
         options={{
-          tabBarLabel: 'Resources',
+          tabBarLabel: 'Campaign',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="book-open-variant" size={size} color={color} />
+            <MaterialCommunityIcons name="bullhorn" size={size} color={color} />
           ),
         }}
       />

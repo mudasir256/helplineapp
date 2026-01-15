@@ -12,6 +12,8 @@ interface AuthUser extends User {
   email: string;
   name?: string;
   picture?: string;
+  profile_image?: string;
+  avatar?: string;
 }
 
 interface AuthContextType {
@@ -461,7 +463,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return false;
           case 'SIGN_IN_ERROR':
             // Extract the actual error message
-            const errorMessage = error?.message || 'Unknown Google Sign-In error';
+            const errorMessage = (error as any)?.message || 'Unknown Google Sign-In error';
             console.error('Sign-in error details:', errorMessage);
             
             // Check for URL scheme errors (requires app rebuild)
@@ -475,7 +477,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             return false;
           default:
-            console.error('Google Sign-In error:', error.code, error.message);
+            console.error('Google Sign-In error:', error.code, (error as any)?.message);
             showToast.error('Google login failed. Please try again.', 'Login Failed');
             return false;
         }

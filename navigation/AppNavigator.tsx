@@ -9,6 +9,8 @@ import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import AdoptionListScreen from '../screens/AdoptionListScreen';
+import AdoptionDetailScreen from '../screens/AdoptionDetailScreen';
+import AdoptedItemDetailScreen from '../screens/AdoptedItemDetailScreen';
 import TabNavigator from './TabNavigator';
 
 const Stack = createNativeStackNavigator();
@@ -35,13 +37,27 @@ export default function AppNavigator() {
           // Authenticated screens - Show bottom tabs
           <>
             <Stack.Screen name="MainTabs" component={TabNavigator} />
-            <Stack.Screen 
-              name="AdoptionList" 
-              component={AdoptionListScreen}
-              options={{
-                headerShown: false,
-              }}
-            />
+                  <Stack.Screen
+                    name="AdoptionList"
+                    component={AdoptionListScreen}
+                    options={{
+                      headerShown: false,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="AdoptionDetail"
+                    component={AdoptionDetailScreen}
+                    options={{
+                      headerShown: false,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="AdoptedItemDetail"
+                    component={AdoptedItemDetailScreen}
+                    options={{
+                      headerShown: false,
+                    }}
+                  />
           </>
         ) : (
           // Unauthenticated screens

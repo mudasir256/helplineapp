@@ -1,6 +1,12 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, Pressable } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, Pressable, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import {
+  useListHealthItemsQuery,
+  useListHigherEducationItemsQuery,
+  useListSchoolItemsQuery,
+  useListWelfareItemsQuery,
+} from '../store/api/adoptionApi';
 
 interface AdoptionModalProps {
   isOpen: boolean;
@@ -8,20 +14,31 @@ interface AdoptionModalProps {
   onSelectDomain: (domain: string) => void;
 }
 
-const domains = [
+interface DomainConfig {
+  id: string;
+  title: string;
+  icon: string;
+  description: string;
+  color: string;
+  apiEndpoint: string;
+}
+
+const domainConfigs: DomainConfig[] = [
   {
     id: 'health',
     title: 'Adopt in Health',
     icon: 'medical-bag',
     description: 'Support healthcare initiatives',
     color: '#e74c3c',
+    apiEndpoint: 'adopt-health',
   },
   {
     id: 'higher-education',
-    title: 'Adopt Higher Education Student',
+    title: 'Adopt Higher Education',
     icon: 'school',
     description: 'Support college and university students',
     color: '#3498db',
+    apiEndpoint: 'adopt-higher-education',
   },
   {
     id: 'school-student',
@@ -29,6 +46,7 @@ const domains = [
     icon: 'book-open-variant',
     description: 'Support school students',
     color: '#27ae60',
+    apiEndpoint: 'adopt-school',
   },
   {
     id: 'welfare',
@@ -36,10 +54,61 @@ const domains = [
     icon: 'hand-heart',
     description: 'Support various welfare activities',
     color: '#f39c12',
+    apiEndpoint: 'adopt-welfare',
   },
 ];
 
 export default function AdoptionModal({ isOpen, onClose, onSelectDomain }: AdoptionModalProps) {
+  // Fetch data from all adoption APIs
+  const { data: healthData, isLoading: isLoadingHealth } = useListHealthItemsQuery(undefined, {
+    skip: !isOpen, // Only fetch when modal is open
+  });
+  
+  const { data: higherEducationData, isLoading: isLoadingHigherEducation } = useListHigherEducationItemsQuery(undefined, {
+    skip: !isOpen,
+  });
+  
+  const { data: schoolData, isLoading: isLoadingSchool } = useListSchoolItemsQuery(undefined, {
+    skip: !isOpen,
+  });
+  
+  const { data: welfareData, isLoading: isLoadingWelfare } = useListWelfareItemsQuery(undefined, {
+    skip: !isOpen,
+  });
+
+  // Map API data to domain configs with counts
+  const domains = useMemo(() => {
+    return domainConfigs.map((config) => {
+      let count = 0;
+      let isLoading = false;
+
+      switch (config.id) {
+        case 'health':
+          count = healthData?.data?.length || 0;
+          isLoading = isLoadingHealth;
+          break;
+        case 'higher-education':
+          count = higherEducationData?.data?.length || 0;
+          isLoading = isLoadingHigherEducation;
+          break;
+        case 'school-student':
+          count = schoolData?.data?.length || 0;
+          isLoading = isLoadingSchool;
+          break;
+        case 'welfare':
+          count = welfareData?.data?.length || 0;
+          isLoading = isLoadingWelfare;
+          break;
+      }
+
+      return {
+        ...config,
+        count,
+        isLoading,
+      };
+    });
+  }, [healthData, higherEducationData, schoolData, welfareData, isLoadingHealth, isLoadingHigherEducation, isLoadingSchool, isLoadingWelfare]);
+
   const handleSelectDomain = (domainId: string) => {
     onSelectDomain(domainId);
     onClose();
@@ -49,13 +118,25 @@ export default function AdoptionModal({ isOpen, onClose, onSelectDomain }: Adopt
     <TouchableOpacity
       style={styles.domainCard}
       onPress={() => handleSelectDomain(item.id)}
+      disabled={item.isLoading}
     >
       <View style={[styles.domainIconContainer, { backgroundColor: `${item.color}15` }]}>
         <MaterialCommunityIcons name={item.icon as any} size={32} color={item.color} />
       </View>
       <View style={styles.domainContent}>
-        <Text style={styles.domainTitle}>{item.title}</Text>
-        <Text style={styles.domainDescription}>{item.description}</Text>
+        <View style={styles.domainTitleRow}>
+          <Text style={styles.domainTitle}>{item.title}</Text>
+          {item.isLoading ? (
+            <ActivityIndicator size="small" color={item.color} style={styles.loadingIndicator} />
+          ) : (
+            <View style={[styles.countBadge, { backgroundColor: item.color }]}>
+              <Text style={styles.countText}>{item.count}</Text>
+            </View>
+          )}
+        </View>
+        <Text style={styles.domainDescription}>
+          {item.description} • {item.count} {item.count === 1 ? 'item' : 'items'} available
+        </Text>
       </View>
       <MaterialCommunityIcons name="chevron-right" size={24} color="#7f8c8d" />
     </TouchableOpacity>
@@ -79,7 +160,9 @@ export default function AdoptionModal({ isOpen, onClose, onSelectDomain }: Adopt
             </TouchableOpacity>
           </View>
           
-          <Text style={styles.subtitle}>Select a domain to view available adoption opportunities</Text>
+          <Text style={styles.subtitle}>
+            Select a domain to view available adoption opportunities
+          </Text>
           
           <FlatList
             data={domains}
@@ -152,11 +235,34 @@ const styles = StyleSheet.create({
   domainContent: {
     flex: 1,
   },
+  domainTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
   domainTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#2c3e50',
-    marginBottom: 4,
+    flex: 1,
+  },
+  loadingIndicator: {
+    marginLeft: 8,
+  },
+  countBadge: {
+    minWidth: 32,
+    height: 24,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  countText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
   },
   domainDescription: {
     fontSize: 13,
